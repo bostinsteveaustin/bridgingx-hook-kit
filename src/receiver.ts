@@ -4,7 +4,7 @@ import {
   TIMESTAMP_HEADER,
   resolveSigningSecret,
   verifyPayload,
-} from "./signing";
+} from "./signing.js";
 
 /**
  * Receiver entry points. A conformant product calls exactly one of these inside

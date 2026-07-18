@@ -5,7 +5,7 @@ import {
   signPayload,
   resolveSigningSecret,
   TIMESTAMP_TOLERANCE_SECONDS,
-} from "./signing";
+} from "./signing.js";
 
 const SECRET = "test-secret";
 const now = () => Math.floor(Date.now() / 1000).toString();

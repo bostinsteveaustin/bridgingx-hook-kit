@@ -1,10 +1,10 @@
-import { signPayload } from "./signing";
+import { signPayload } from "./signing.js";
 import {
   hookAckSchema,
   statusResponseSchema,
   type HookAck,
   type StatusResponse,
-} from "./schemas";
+} from "./schemas.js";
 
 /**
  * Admin sending-side client. Signs every call and enforces the required posture

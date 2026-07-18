@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { createHmac } from "node:crypto";
-import { verifyIncoming, handleSignedHook, type HeadersLike } from "./receiver";
+import { verifyIncoming, handleSignedHook, type HeadersLike } from "./receiver.js";
 import {
   provisionRequestSchema,
   statusResponseSchema,
   suspendRequestSchema,
   ack,
   nack,
-} from "./schemas";
+} from "./schemas.js";
 
 const SECRET = "s";
 const now = () => Math.floor(Date.now() / 1000).toString();

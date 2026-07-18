@@ -1,5 +1,5 @@
-import { signPayload } from "./signing";
-import { hookAckSchema, statusResponseSchema, } from "./schemas";
+import { signPayload } from "./signing.js";
+import { hookAckSchema, statusResponseSchema, } from "./schemas.js";
 /**
  * Admin sending-side client. Signs every call and enforces the required posture
  * (spec @reference_data): `redirect: "manual"` (a compromised/open-redirecting

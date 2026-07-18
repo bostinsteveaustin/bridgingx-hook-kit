@@ -13,7 +13,7 @@ export {
   verifyPayload,
   type SignHeaders,
   type VerifyResult,
-} from "./signing";
+} from "./signing.js";
 
 export {
   tenantRefSchema,
@@ -37,7 +37,7 @@ export {
   type StatusResponse,
   type HookAck,
   type HookState,
-} from "./schemas";
+} from "./schemas.js";
 
 export {
   verifyIncoming,
@@ -47,6 +47,6 @@ export {
   type VerifyIncomingResult,
   type HandleSignedHookOptions,
   type SignedHookResult,
-} from "./receiver";
+} from "./receiver.js";
 
-export { HookClient, type HookClientOptions } from "./client";
+export { HookClient, type HookClientOptions } from "./client.js";

@@ -1,4 +1,4 @@
-import { type HookAck, type StatusResponse } from "./schemas";
+import { type HookAck, type StatusResponse } from "./schemas.js";
 export interface HookClientOptions {
     /** The product's hook base URL (bare origin per the spec's status-path note). */
     provisioningUrl: string;

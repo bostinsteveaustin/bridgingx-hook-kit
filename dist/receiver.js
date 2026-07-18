@@ -1,4 +1,4 @@
-import { SIGNATURE_HEADER, TIMESTAMP_HEADER, resolveSigningSecret, verifyPayload, } from "./signing";
+import { SIGNATURE_HEADER, TIMESTAMP_HEADER, resolveSigningSecret, verifyPayload, } from "./signing.js";
 /**
  * Verify an incoming signed request. Fail-closed:
  *   - missing secret        → 503 (misconfiguration, not the caller's fault)
