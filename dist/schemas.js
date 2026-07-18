@@ -18,13 +18,42 @@ export const tenantRefSchema = z.object({
     slug: z.string().min(1),
     name: z.string().min(1),
 });
+// --- Per-tenant configuration (Phase 2, AB-16 / P-01) ------------------------
+/**
+ * Config-block schema version carried on the provision payload. Bump when the
+ * block's shape changes so a receiver can branch on `config.version`.
+ */
+export const TENANT_CONFIG_VERSION = 1;
+/**
+ * Admin-owned per-(tenant × product) configuration, pushed on /provision and
+ * applied by the receiver (spec @decision_logic: "apply … per-tenant config from
+ * the payload"). Admin is the SINGLE source of truth — this replaces config
+ * hardcoded in product source (spec @prohibitions / @pitfalls: "No per-tenant
+ * configuration hardcoded in source").
+ *
+ * `modules` is an OPAQUE enable-map: the product owns the module vocabulary; the
+ * control plane only stores and forwards keys it does not interpret (product
+ * taxonomy stays out of the control plane). A receiver applies the keys it
+ * recognises and acks with detail on the rest (spec @decision_logic escalation).
+ */
+export const tenantConfigSchema = z.object({
+    version: z.number().int().positive(),
+    /** Display brand shown by the product; null/absent → receiver falls back to tenant name. */
+    brand: z.string().nullable().optional(),
+    /** Opaque module enable-map: moduleKey → enabled. */
+    modules: z.record(z.string(), z.boolean()).default({}),
+});
 // --- Live contract (exact current shapes) -----------------------------------
 /** POST /provision */
 export const provisionRequestSchema = z.object({
     tenant: tenantRefSchema,
     entitlements: z.array(z.string()),
-    // NOTE (Phase 2): plan/limits and per-tenant config blocks attach here per the
-    // v2 PRD. Omitted now; add as `.extend(...)` when ratified — do not guess.
+    /**
+     * Per-tenant config block (Phase 2, AB-16). OPTIONAL for backward-compatibility:
+     * receivers not yet consuming it, and pre-Phase-2 payloads, still validate — so
+     * adding it changes no receiver's behaviour until it opts in.
+     */
+    config: tenantConfigSchema.optional(),
 });
 /** POST /deprovision — access teardown, records preserved. */
 export const deprovisionRequestSchema = z.object({

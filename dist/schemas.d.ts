@@ -19,6 +19,29 @@ export declare const tenantRefSchema: z.ZodObject<{
     name: z.ZodString;
 }, z.core.$strip>;
 export type TenantRef = z.infer<typeof tenantRefSchema>;
+/**
+ * Config-block schema version carried on the provision payload. Bump when the
+ * block's shape changes so a receiver can branch on `config.version`.
+ */
+export declare const TENANT_CONFIG_VERSION = 1;
+/**
+ * Admin-owned per-(tenant × product) configuration, pushed on /provision and
+ * applied by the receiver (spec @decision_logic: "apply … per-tenant config from
+ * the payload"). Admin is the SINGLE source of truth — this replaces config
+ * hardcoded in product source (spec @prohibitions / @pitfalls: "No per-tenant
+ * configuration hardcoded in source").
+ *
+ * `modules` is an OPAQUE enable-map: the product owns the module vocabulary; the
+ * control plane only stores and forwards keys it does not interpret (product
+ * taxonomy stays out of the control plane). A receiver applies the keys it
+ * recognises and acks with detail on the rest (spec @decision_logic escalation).
+ */
+export declare const tenantConfigSchema: z.ZodObject<{
+    version: z.ZodNumber;
+    brand: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    modules: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodBoolean>>;
+}, z.core.$strip>;
+export type TenantConfig = z.infer<typeof tenantConfigSchema>;
 /** POST /provision */
 export declare const provisionRequestSchema: z.ZodObject<{
     tenant: z.ZodObject<{
@@ -27,6 +50,11 @@ export declare const provisionRequestSchema: z.ZodObject<{
         name: z.ZodString;
     }, z.core.$strip>;
     entitlements: z.ZodArray<z.ZodString>;
+    config: z.ZodOptional<z.ZodObject<{
+        version: z.ZodNumber;
+        brand: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        modules: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodBoolean>>;
+    }, z.core.$strip>>;
 }, z.core.$strip>;
 export type ProvisionRequest = z.infer<typeof provisionRequestSchema>;
 /** POST /deprovision — access teardown, records preserved. */

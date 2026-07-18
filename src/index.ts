@@ -17,6 +17,8 @@ export {
 
 export {
   tenantRefSchema,
+  TENANT_CONFIG_VERSION,
+  tenantConfigSchema,
   provisionRequestSchema,
   deprovisionRequestSchema,
   suspendRequestSchema,
@@ -29,6 +31,7 @@ export {
   ack,
   nack,
   type TenantRef,
+  type TenantConfig,
   type ProvisionRequest,
   type DeprovisionRequest,
   type SuspendRequest,
