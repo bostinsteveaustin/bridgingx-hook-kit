@@ -1,4 +1,7 @@
 node_modules/
-dist/
 *.log
 .DS_Store
+
+# dist/ is committed on purpose: consumers install this package as a git
+# dependency and must get prebuilt JS + types without an install-time build.
+# Rebuild with `pnpm build` after any src change.
