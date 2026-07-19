@@ -5,7 +5,7 @@
  * Cortx ctx e5f4338b).
  */
 export { TIMESTAMP_TOLERANCE_SECONDS, SIGNATURE_HEADER, TIMESTAMP_HEADER, resolveSigningSecret, signPayload, verifyPayload, } from "./signing.js";
-export { tenantRefSchema, TENANT_CONFIG_VERSION, tenantConfigSchema, provisionRequestSchema, deprovisionRequestSchema, suspendRequestSchema, reactivateRequestSchema, userRequestSchema, statusResponseSchema, hookAckSchema, hookStateSchema, HOOK_STATES, ack, nack, } from "./schemas.js";
+export { tenantRefSchema, TENANT_CONFIG_VERSION, tenantConfigSchema, TENANT_LIMITS_VERSION, tenantLimitsSchema, provisionRequestSchema, deprovisionRequestSchema, suspendRequestSchema, reactivateRequestSchema, userRequestSchema, statusResponseSchema, hookAckSchema, hookStateSchema, HOOK_STATES, ack, nack, } from "./schemas.js";
 export { verifyIncoming, handleSignedHook, } from "./receiver.js";
 export { HookClient } from "./client.js";
 //# sourceMappingURL=index.js.map

@@ -8,9 +8,13 @@ import { z } from "zod";
  * SCOPE (Phase 1): `/provision`, `/deprovision`, `/status` are the LIVE contract
  * and are specified exactly as sent today, so migrating receivers onto them is
  * behaviour-preserving. `/suspend`, `/reactivate`, `/user` are the v2 endpoints;
- * their detailed plan/limits, per-tenant config, and (user × product → role)
- * blocks are ratified in the BX Admin Boundary v2 PRD (Phases 2–3) and are
- * DELIBERATELY LEFT as extensible skeletons here — do not invent those fields.
+ * their per-tenant config and (user × product → role) blocks are ratified in the
+ * BX Admin Boundary v2 PRD (Phases 2–3) and are DELIBERATELY LEFT as extensible
+ * skeletons here — do not invent those fields.
+ *
+ * Phase 2 landings on /provision: `config` (AB-16) and `limits` (AB-25, ratified
+ * DR-2026-07-18-10) — both OPTIONAL blocks, so pre-Phase-2 payloads and
+ * not-yet-consuming receivers validate unchanged.
  */
 /** Tenant identity carried on every hook. Internal/WorkOS ids only — no vendor shapes. */
 export declare const tenantRefSchema: z.ZodObject<{
@@ -42,6 +46,36 @@ export declare const tenantConfigSchema: z.ZodObject<{
     modules: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodBoolean>>;
 }, z.core.$strip>;
 export type TenantConfig = z.infer<typeof tenantConfigSchema>;
+/**
+ * Limits-block schema version carried on the provision payload. Bump when the
+ * block's shape changes so a receiver can branch on `limits.version`.
+ */
+export declare const TENANT_LIMITS_VERSION = 1;
+/**
+ * Admin-owned per-tenant plan/limits, pushed on /provision beside `config`.
+ * Replaces the out-of-contract /set-plan path: plan tier + limits now ride the
+ * ack-gated, per-product-secret provision contract.
+ *
+ * Seat semantics are ratified (DR-2026-07-18-10): seat = grant, active =
+ * granted, the billing/enforcement count is the number of `_granted` flags per
+ * tenant. Admin enforces seat caps at grant time; receivers treat `seats` as
+ * display/reporting context, not an enforcement duty.
+ *
+ * `quotas` is OPAQUE per-product data (same seam as `config.modules`): the
+ * product owns its quota vocabulary (e.g. Cortx's contexts/spaces); the control
+ * plane stores and forwards keys it never interprets. A receiver reads its own
+ * `quotas[<its product key>]` map and applies the keys it recognises.
+ */
+export declare const tenantLimitsSchema: z.ZodObject<{
+    version: z.ZodNumber;
+    plan: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    seats: z.ZodOptional<z.ZodObject<{
+        total: z.ZodOptional<z.ZodNumber>;
+        perProduct: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+    }, z.core.$strip>>;
+    quotas: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodRecord<z.ZodString, z.ZodNumber>>>;
+}, z.core.$strip>;
+export type TenantLimits = z.infer<typeof tenantLimitsSchema>;
 /** POST /provision */
 export declare const provisionRequestSchema: z.ZodObject<{
     tenant: z.ZodObject<{
@@ -54,6 +88,15 @@ export declare const provisionRequestSchema: z.ZodObject<{
         version: z.ZodNumber;
         brand: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         modules: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodBoolean>>;
+    }, z.core.$strip>>;
+    limits: z.ZodOptional<z.ZodObject<{
+        version: z.ZodNumber;
+        plan: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        seats: z.ZodOptional<z.ZodObject<{
+            total: z.ZodOptional<z.ZodNumber>;
+            perProduct: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+        }, z.core.$strip>>;
+        quotas: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodRecord<z.ZodString, z.ZodNumber>>>;
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export type ProvisionRequest = z.infer<typeof provisionRequestSchema>;
