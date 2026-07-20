@@ -32,6 +32,9 @@ export {
   HOOK_STATES,
   ack,
   nack,
+  USAGE_REPORT_VERSION,
+  usageReportSchema,
+  usageReportUserSchema,
   type TenantRef,
   type TenantConfig,
   type TenantLimits,
@@ -43,6 +46,8 @@ export {
   type StatusResponse,
   type HookAck,
   type HookState,
+  type UsageReport,
+  type UsageReportUser,
 } from "./schemas.js";
 
 export {

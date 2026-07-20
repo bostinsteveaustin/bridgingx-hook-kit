@@ -5,6 +5,8 @@ import {
   TENANT_CONFIG_VERSION,
   tenantLimitsSchema,
   TENANT_LIMITS_VERSION,
+  usageReportSchema,
+  USAGE_REPORT_VERSION,
 } from "./schemas.js";
 
 const TENANT = { workosOrgId: "org_1", slug: "acme", name: "Acme" };
@@ -132,5 +134,67 @@ describe("provisionRequestSchema — config and limits are optional (backward co
       limits: { version: 1, seats: { total: 5 } },
     });
     expect("limits" in parsed).toBe(false);
+  });
+});
+
+describe("usageReportSchema (Metering Phase 5, DR-2026-07-20-11)", () => {
+  const DAY = {
+    schemaVersion: USAGE_REPORT_VERSION,
+    product: "bridge_ci",
+    workosOrgId: "org_1",
+    periodStart: "2026-07-19",
+    periodEnd: "2026-07-19",
+    metrics: { deal_rotors_total: 42 },
+  };
+
+  it("accepts a daily org rollup and an optional byUser breakdown", () => {
+    expect(usageReportSchema.parse(DAY).metrics.deal_rotors_total).toBe(42);
+    const withUsers = usageReportSchema.parse({
+      ...DAY,
+      byUser: [
+        { workosUserId: "user_1", metrics: { ai_tokens_in: 100, ai_tokens_out: 40 } },
+        { email: "maggie@acme.test", metrics: { ai_tokens: 7 } },
+      ],
+    });
+    expect(withUsers.byUser).toHaveLength(2);
+  });
+
+  it("stores unknown metric keys (forward-compatible, opaque to the control plane)", () => {
+    const r = usageReportSchema.parse({
+      ...DAY,
+      metrics: { some_future_metric: 1, another: 0 },
+    });
+    expect(r.metrics.some_future_metric).toBe(1);
+  });
+
+  it("enforces v1 daily grain: periodEnd must equal periodStart", () => {
+    expect(
+      usageReportSchema.safeParse({ ...DAY, periodEnd: "2026-07-20" }).success,
+    ).toBe(false);
+  });
+
+  it("rejects malformed dates, empty product/org, and missing metrics", () => {
+    expect(usageReportSchema.safeParse({ ...DAY, periodStart: "19-07-2026", periodEnd: "19-07-2026" }).success).toBe(false);
+    expect(usageReportSchema.safeParse({ ...DAY, periodStart: "2026-7-19", periodEnd: "2026-7-19" }).success).toBe(false);
+    expect(usageReportSchema.safeParse({ ...DAY, product: "" }).success).toBe(false);
+    expect(usageReportSchema.safeParse({ ...DAY, workosOrgId: "" }).success).toBe(false);
+    expect(usageReportSchema.safeParse({ schemaVersion: 1, product: "cortx", workosOrgId: "org_1", periodStart: "2026-07-19", periodEnd: "2026-07-19" }).success).toBe(false);
+  });
+
+  it("rejects non-finite metric values (JSON.parse admits 1e999 as Infinity)", () => {
+    const viaJson = JSON.parse('{"tokens": 1e999}') as Record<string, number>;
+    expect(Number.isFinite(viaJson.tokens)).toBe(false);
+    expect(usageReportSchema.safeParse({ ...DAY, metrics: viaJson }).success).toBe(false);
+  });
+
+  it("requires an identifier on every byUser row and caps the array", () => {
+    expect(
+      usageReportSchema.safeParse({ ...DAY, byUser: [{ metrics: { t: 1 } }] }).success,
+    ).toBe(false);
+    const flood = Array.from({ length: 5001 }, (_, i) => ({
+      workosUserId: `user_${i}`,
+      metrics: { t: 1 },
+    }));
+    expect(usageReportSchema.safeParse({ ...DAY, byUser: flood }).success).toBe(false);
   });
 });

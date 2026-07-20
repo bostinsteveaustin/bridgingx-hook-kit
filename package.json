@@ -1,8 +1,8 @@
 {
   "name": "@bridgingx/hook-kit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
-  "description": "Shared HMAC hook verification + payload schemas for the BX Admin ↔ product boundary. The single source of construction for every receiver (Receiver Conformance Specification, Cortx ctx e5f4338b).",
+  "description": "Shared HMAC hook verification + payload schemas for the BX Admin â†” product boundary. The single source of construction for every receiver (Receiver Conformance Specification, Cortx ctx e5f4338b).",
   "type": "module",
   "exports": {
     ".": {

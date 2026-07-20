@@ -201,4 +201,46 @@ export type HookAck = z.infer<typeof hookAckSchema>;
 export declare function ack(state?: HookState, detail?: string): HookAck;
 /** Build a failure ack. */
 export declare function nack(detail: string, state?: HookState): HookAck;
+/**
+ * Usage-report schema version. Bump when the payload shape changes so the
+ * receiver can branch on `schemaVersion`.
+ */
+export declare const USAGE_REPORT_VERSION = 1;
+/** Optional per-user breakdown row. At least one identifier is required. */
+export declare const usageReportUserSchema: z.ZodObject<{
+    workosUserId: z.ZodOptional<z.ZodString>;
+    email: z.ZodOptional<z.ZodString>;
+    metrics: z.ZodRecord<z.ZodString, z.ZodNumber>;
+}, z.core.$strip>;
+export type UsageReportUser = z.infer<typeof usageReportUserSchema>;
+/**
+ * POST /api/usage/report on BX Admin — the ONE sanctioned product-initiated
+ * flow (DR-04): async pre-aggregated daily rollups, out of the request path.
+ * Direction reverses here: the PRODUCT signs (its per-product secret) and
+ * ADMIN verifies via the same canonical envelope — receivers of this schema
+ * are the control plane, not products.
+ *
+ * Semantics (v1): daily grain (`periodEnd === periodStart`); idempotent upsert
+ * on (product, workosOrgId, period) — a re-sent day replaces that day; late /
+ * backfilled days are legal. Reporting must never block product request paths;
+ * a failed send is retried on the reporter's next cron.
+ *
+ * `product` is the sender's registry key; the receiver canonicalises it
+ * (hyphen/underscore-insensitive) against the product registry — senders do
+ * not need to know registry-internal spelling.
+ */
+export declare const usageReportSchema: z.ZodObject<{
+    schemaVersion: z.ZodNumber;
+    product: z.ZodString;
+    workosOrgId: z.ZodString;
+    periodStart: z.ZodString;
+    periodEnd: z.ZodString;
+    metrics: z.ZodRecord<z.ZodString, z.ZodNumber>;
+    byUser: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        workosUserId: z.ZodOptional<z.ZodString>;
+        email: z.ZodOptional<z.ZodString>;
+        metrics: z.ZodRecord<z.ZodString, z.ZodNumber>;
+    }, z.core.$strip>>>;
+}, z.core.$strip>;
+export type UsageReport = z.infer<typeof usageReportSchema>;
 //# sourceMappingURL=schemas.d.ts.map

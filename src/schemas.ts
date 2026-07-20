@@ -206,3 +206,68 @@ export function ack(state?: HookState, detail?: string): HookAck {
 export function nack(detail: string, state: HookState = "error"): HookAck {
   return { ok: false, state, detail };
 }
+
+// --- Usage reporting (Metering Phase 5, DR-2026-07-20-11 / DR-04) ------------
+
+/**
+ * Usage-report schema version. Bump when the payload shape changes so the
+ * receiver can branch on `schemaVersion`.
+ */
+export const USAGE_REPORT_VERSION = 1;
+
+/** UTC calendar date, `YYYY-MM-DD` — the metering grain is the day. */
+const usageDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "expected YYYY-MM-DD");
+
+/**
+ * Metric map: product-defined keys → finite numbers. Keys are OPAQUE to the
+ * control plane (same seam as `config.modules` / `limits.quotas`): unknown keys
+ * are stored, never rejected — forward-compatible by construction. `.finite()`
+ * matters: JSON.parse accepts `1e999` as Infinity, which must not reach jsonb.
+ */
+const usageMetricsSchema = z.record(z.string().min(1), z.number().finite());
+
+/** Optional per-user breakdown row. At least one identifier is required. */
+export const usageReportUserSchema = z
+  .object({
+    workosUserId: z.string().min(1).optional(),
+    email: z.string().min(1).optional(),
+    metrics: usageMetricsSchema,
+  })
+  .refine((u) => u.workosUserId || u.email, {
+    message: "byUser entry requires workosUserId or email",
+  });
+export type UsageReportUser = z.infer<typeof usageReportUserSchema>;
+
+/**
+ * POST /api/usage/report on BX Admin — the ONE sanctioned product-initiated
+ * flow (DR-04): async pre-aggregated daily rollups, out of the request path.
+ * Direction reverses here: the PRODUCT signs (its per-product secret) and
+ * ADMIN verifies via the same canonical envelope — receivers of this schema
+ * are the control plane, not products.
+ *
+ * Semantics (v1): daily grain (`periodEnd === periodStart`); idempotent upsert
+ * on (product, workosOrgId, period) — a re-sent day replaces that day; late /
+ * backfilled days are legal. Reporting must never block product request paths;
+ * a failed send is retried on the reporter's next cron.
+ *
+ * `product` is the sender's registry key; the receiver canonicalises it
+ * (hyphen/underscore-insensitive) against the product registry — senders do
+ * not need to know registry-internal spelling.
+ */
+export const usageReportSchema = z
+  .object({
+    schemaVersion: z.number().int().positive(),
+    product: z.string().min(1),
+    workosOrgId: z.string().min(1),
+    periodStart: usageDateSchema,
+    periodEnd: usageDateSchema,
+    metrics: usageMetricsSchema,
+    /** Optional per-user breakdown. Bounded: a daily rollup for one tenant. */
+    byUser: z.array(usageReportUserSchema).max(5000).optional(),
+  })
+  .refine((r) => r.periodEnd === r.periodStart, {
+    message: "v1 is daily grain: periodEnd must equal periodStart",
+  });
+export type UsageReport = z.infer<typeof usageReportSchema>;
