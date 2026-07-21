@@ -61,3 +61,20 @@ export {
 } from "./receiver.js";
 
 export { HookClient, type HookClientOptions } from "./client.js";
+
+/**
+ * Reconciliation engine (DR-13). Re-exported here for zod-4 consumers (e.g. BX
+ * Admin). zod-3 consumers (e.g. Cortx) MUST import from the dedicated
+ * `@bridgingx/hook-kit/reconcile` subpath instead — that module is zod-free and
+ * pulls in none of the schema code, so it does not force a zod-4 bump.
+ */
+export {
+  reconcile,
+  RECONCILE_DRIFT_MARKER,
+  RECONCILE_DRIFT_STATUS,
+  type DesiredItem,
+  type Outcome,
+  type DriftRecord,
+  type ReconcileReport,
+  type ReconcileOptions,
+} from "./reconcile.js";
