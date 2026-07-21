@@ -7,6 +7,7 @@ import {
   TENANT_LIMITS_VERSION,
   usageReportSchema,
   USAGE_REPORT_VERSION,
+  userRequestSchema,
 } from "./schemas.js";
 
 const TENANT = { workosOrgId: "org_1", slug: "acme", name: "Acme" };
@@ -196,5 +197,40 @@ describe("usageReportSchema (Metering Phase 5, DR-2026-07-20-11)", () => {
       metrics: { t: 1 },
     }));
     expect(usageReportSchema.safeParse({ ...DAY, byUser: flood }).success).toBe(false);
+  });
+});
+
+describe("userRequestSchema (AB-22 /user grant lifecycle)", () => {
+  const BASE = { tenant: { workosOrgId: "org_1" }, user: { workosUserId: "user_1" } };
+
+  it("accepts a grant signal with product keys and an email", () => {
+    const r = userRequestSchema.parse({
+      ...BASE,
+      user: { workosUserId: "user_1", email: "m@acme.test" },
+      grants: ["bridge-ci", "cortx"],
+      action: "grant",
+    });
+    expect(r.action).toBe("grant");
+    expect(r.grants).toEqual(["bridge-ci", "cortx"]);
+  });
+
+  it("accepts a bare revoke (grants optional, email optional)", () => {
+    const r = userRequestSchema.parse({ ...BASE, action: "revoke" });
+    expect(r.action).toBe("revoke");
+    expect(r.grants).toBeUndefined();
+    expect(r.user.email).toBeUndefined();
+  });
+
+  it("requires tenant.workosOrgId and user.workosUserId; rejects unknown actions", () => {
+    expect(userRequestSchema.safeParse({ tenant: {}, user: { workosUserId: "u" } }).success).toBe(false);
+    expect(userRequestSchema.safeParse({ tenant: { workosOrgId: "o" }, user: {} }).success).toBe(false);
+    expect(userRequestSchema.safeParse({ ...BASE, action: "promote" }).success).toBe(false);
+  });
+
+  it("does NOT accept a role/admin block yet (AB-07 reserved, non-strict = stripped)", () => {
+    // The AB-07 marker is deliberately out of contract; a sender adding it must
+    // not have it silently honoured — it is dropped, not stored.
+    const r = userRequestSchema.parse({ ...BASE, action: "grant", roles: { "bridge-ci": "admin" } });
+    expect("roles" in r).toBe(false);
   });
 });

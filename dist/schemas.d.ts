@@ -107,6 +107,55 @@ export declare const deprovisionRequestSchema: z.ZodObject<{
     }, z.core.$strip>;
 }, z.core.$strip>;
 export type DeprovisionRequest = z.infer<typeof deprovisionRequestSchema>;
+/**
+ * POST /user — the per-product user grant/revoke signal (AB-22, ratified B5).
+ *
+ * Closes the append-only revocation defect: today an Admin-side revoke kills
+ * token access (the `_granted` flag target is removed) but products never LEARN,
+ * so product user rows/roles/sessions persist ("no trace" unmet product-side).
+ * With seat = grant (AB-25) an operator un-grants to end a charge and expects
+ * the product seat to end — this hook is that teardown signal.
+ *
+ * SENDER (Admin `ProductHookClient.user`): same HMAC + retry envelope as every
+ * hook; fired per affected product AFTER the flag change; recorded on the
+ * provisioning-events timeline so failures are visible + retryable.
+ *   - grant:  grant row → `_granted` flag (fail-safe) → /user grant (best-effort;
+ *             the product pre-provisions the user, as its login path would).
+ *   - revoke: `_granted` flag removed fail-CLOSED → grant row deleted → /user
+ *             revoke (best-effort + retryable — token access is ALREADY dead, so
+ *             a failed teardown is hygiene-lag, not an access leak; the token is
+ *             the enforcement boundary, this hook is the cleanup signal).
+ *
+ * RECEIVER: verify + validate via handleSignedHook, then act idempotently on
+ * (workosOrgId, workosUserId): `revoke` → deactivate product access (+ SHOULD
+ * invalidate live sessions); `grant` → pre-provision the user. Ack via ack()/
+ * nack(). MEMBERSHIP lifecycle stays on the org membership webhook — this hook
+ * is the product-GRANT axis only (onboarding-axes doctrine); no overlap.
+ *
+ * RESERVED — NOT in this contract yet: the per-product ADMIN marker / role block
+ * (AB-07, ratified Option 3). It "rides /user" but its shape and the two-writer
+ * reconciliation (membership webhook vs hook-borne role) are an OPEN POINT under
+ * hub review — deliberately absent here so receivers don't pre-commit. Add it as
+ * an additive field in a later minor once ruled; do not fabricate it now.
+ */
+export declare const userRequestSchema: z.ZodObject<{
+    tenant: z.ZodObject<{
+        workosOrgId: z.ZodString;
+    }, z.core.$strip>;
+    user: z.ZodObject<{
+        workosUserId: z.ZodString;
+        email: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>;
+    grants: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    action: z.ZodOptional<z.ZodEnum<{
+        grant: "grant";
+        revoke: "revoke";
+        suspend: "suspend";
+        reactivate: "reactivate";
+        delete: "delete";
+    }>>;
+}, z.core.$strip>;
+export type UserRequest = z.infer<typeof userRequestSchema>;
 /** POST /suspend — reversible access revocation, tenant- or user-scoped. */
 export declare const suspendRequestSchema: z.ZodObject<{
     tenant: z.ZodObject<{
@@ -133,26 +182,6 @@ export declare const reactivateRequestSchema: z.ZodObject<{
     workosUserId: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type ReactivateRequest = z.infer<typeof reactivateRequestSchema>;
-/** POST /user — user lifecycle + per-product grant + (user × product → role).
- *  Skeleton: the role block is Phase 3 (role matrix) and is intentionally absent. */
-export declare const userRequestSchema: z.ZodObject<{
-    tenant: z.ZodObject<{
-        workosOrgId: z.ZodString;
-    }, z.core.$strip>;
-    user: z.ZodObject<{
-        workosUserId: z.ZodString;
-        email: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>;
-    grants: z.ZodOptional<z.ZodArray<z.ZodString>>;
-    action: z.ZodOptional<z.ZodEnum<{
-        grant: "grant";
-        revoke: "revoke";
-        suspend: "suspend";
-        reactivate: "reactivate";
-        delete: "delete";
-    }>>;
-}, z.core.$strip>;
-export type UserRequest = z.infer<typeof userRequestSchema>;
 /**
  * Normalised product-applied state (spec @reference_data: GET /status,
  * "normalised granularity"). The SUPERSET every receiver maps into, so Admin
