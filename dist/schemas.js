@@ -109,6 +109,62 @@ export const provisionRequestSchema = z.object({
 export const deprovisionRequestSchema = z.object({
     tenant: z.object({ workosOrgId: z.string().min(1) }),
 });
+// --- Per-user grant lifecycle (AB-22) — SUPPORTED CONTRACT ------------------
+/**
+ * POST /user — the per-product user grant/revoke signal (AB-22, ratified B5).
+ *
+ * Closes the append-only revocation defect: today an Admin-side revoke kills
+ * token access (the `_granted` flag target is removed) but products never LEARN,
+ * so product user rows/roles/sessions persist ("no trace" unmet product-side).
+ * With seat = grant (AB-25) an operator un-grants to end a charge and expects
+ * the product seat to end — this hook is that teardown signal.
+ *
+ * SENDER (Admin `ProductHookClient.user`): same HMAC + retry envelope as every
+ * hook; fired per affected product AFTER the flag change; recorded on the
+ * provisioning-events timeline so failures are visible + retryable.
+ *   - grant:  grant row → `_granted` flag (fail-safe) → /user grant (best-effort;
+ *             the product pre-provisions the user, as its login path would).
+ *   - revoke: `_granted` flag removed fail-CLOSED → grant row deleted → /user
+ *             revoke (best-effort + retryable — token access is ALREADY dead, so
+ *             a failed teardown is hygiene-lag, not an access leak; the token is
+ *             the enforcement boundary, this hook is the cleanup signal).
+ *
+ * RECEIVER: verify + validate via handleSignedHook, then act idempotently on
+ * (workosOrgId, workosUserId): `revoke` → deactivate product access (+ SHOULD
+ * invalidate live sessions); `grant` → pre-provision the user. Ack via ack()/
+ * nack(). MEMBERSHIP lifecycle stays on the org membership webhook — this hook
+ * is the product-GRANT axis only (onboarding-axes doctrine); no overlap.
+ *
+ * REVOKE IS NOT best-effort (ruled 2026-07-20): with seat = grant, a product
+ * that never learns of a revoke keeps the user active and BILLABLE — a wrong
+ * charge, not hygiene lag. The sender fires flag-first (access/ledger stop now);
+ * a dropped `/user revoke` is caught by a revocation RECONCILER sweep (B8
+ * pattern) that detects "product still thinks active" as loud drift and
+ * re-asserts. Receiver design MUST assume that sweep exists. Grant stays
+ * fail-safe/best-effort (a missing pre-provision self-heals on the user's next
+ * login), so the asymmetry is deliberate.
+ *
+ * AB-07 per-product ADMIN marker (`admin`, ratified Option 3): optional boolean
+ * — is this user an admin of THIS product? Maps to the product's top internal
+ * role; absent/false ⇒ the product's default member mapping. Two-writer
+ * precedence (same as the existing role-resolution doctrine): the Admin-pushed
+ * marker is authoritative AT PUSH; a product-LOCAL change is sticky and marked
+ * `source=manual`, winning until the next push overwrites it; divergence stays
+ * visible. Richer per-product role tiers (AB-07 Option 2) would extend this
+ * field later — do not fabricate them now.
+ */
+export const userRequestSchema = z.object({
+    tenant: z.object({ workosOrgId: z.string().min(1) }),
+    user: z.object({
+        workosUserId: z.string().min(1),
+        email: z.string().optional(),
+    }),
+    /** Product keys this user is granted (drives the `<key>_granted` marker). */
+    grants: z.array(z.string()).optional(),
+    action: z.enum(["grant", "revoke", "suspend", "reactivate", "delete"]).optional(),
+    /** AB-07 per-product admin marker (Option 3): admin of THIS product? */
+    admin: z.boolean().optional(),
+});
 // --- v2 endpoint skeletons (extend in Phase 2/3, do not fabricate fields) ----
 /** POST /suspend — reversible access revocation, tenant- or user-scoped. */
 export const suspendRequestSchema = z.object({
@@ -122,18 +178,6 @@ export const reactivateRequestSchema = z.object({
     tenant: tenantRefSchema,
     scope: z.enum(["tenant", "user"]),
     workosUserId: z.string().min(1).optional(),
-});
-/** POST /user — user lifecycle + per-product grant + (user × product → role).
- *  Skeleton: the role block is Phase 3 (role matrix) and is intentionally absent. */
-export const userRequestSchema = z.object({
-    tenant: z.object({ workosOrgId: z.string().min(1) }),
-    user: z.object({
-        workosUserId: z.string().min(1),
-        email: z.string().optional(),
-    }),
-    /** Product keys this user is granted (two-flag: drives the `<key>_granted` marker). */
-    grants: z.array(z.string()).optional(),
-    action: z.enum(["grant", "revoke", "suspend", "reactivate", "delete"]).optional(),
 });
 // --- Status + acknowledgement (shared vocabulary — seeds AB-21) --------------
 /**
