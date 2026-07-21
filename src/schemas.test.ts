@@ -227,10 +227,14 @@ describe("userRequestSchema (AB-22 /user grant lifecycle)", () => {
     expect(userRequestSchema.safeParse({ ...BASE, action: "promote" }).success).toBe(false);
   });
 
-  it("does NOT accept a role/admin block yet (AB-07 reserved, non-strict = stripped)", () => {
-    // The AB-07 marker is deliberately out of contract; a sender adding it must
-    // not have it silently honoured — it is dropped, not stored.
-    const r = userRequestSchema.parse({ ...BASE, action: "grant", roles: { "bridge-ci": "admin" } });
+  it("accepts the AB-07 admin marker (Option 3, optional boolean)", () => {
+    expect(userRequestSchema.parse({ ...BASE, action: "grant", admin: true }).admin).toBe(true);
+    expect(userRequestSchema.parse({ ...BASE, action: "grant" }).admin).toBeUndefined();
+    expect(userRequestSchema.safeParse({ ...BASE, admin: "yes" }).success).toBe(false);
+  });
+
+  it("still strips an unratified richer role block (Option 2 not fabricated)", () => {
+    const r = userRequestSchema.parse({ ...BASE, action: "grant", roles: { "bridge-ci": "editor" } });
     expect("roles" in r).toBe(false);
   });
 });

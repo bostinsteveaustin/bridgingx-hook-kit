@@ -132,11 +132,23 @@ export type DeprovisionRequest = z.infer<typeof deprovisionRequestSchema>;
  * nack(). MEMBERSHIP lifecycle stays on the org membership webhook — this hook
  * is the product-GRANT axis only (onboarding-axes doctrine); no overlap.
  *
- * RESERVED — NOT in this contract yet: the per-product ADMIN marker / role block
- * (AB-07, ratified Option 3). It "rides /user" but its shape and the two-writer
- * reconciliation (membership webhook vs hook-borne role) are an OPEN POINT under
- * hub review — deliberately absent here so receivers don't pre-commit. Add it as
- * an additive field in a later minor once ruled; do not fabricate it now.
+ * REVOKE IS NOT best-effort (ruled 2026-07-20): with seat = grant, a product
+ * that never learns of a revoke keeps the user active and BILLABLE — a wrong
+ * charge, not hygiene lag. The sender fires flag-first (access/ledger stop now);
+ * a dropped `/user revoke` is caught by a revocation RECONCILER sweep (B8
+ * pattern) that detects "product still thinks active" as loud drift and
+ * re-asserts. Receiver design MUST assume that sweep exists. Grant stays
+ * fail-safe/best-effort (a missing pre-provision self-heals on the user's next
+ * login), so the asymmetry is deliberate.
+ *
+ * AB-07 per-product ADMIN marker (`admin`, ratified Option 3): optional boolean
+ * — is this user an admin of THIS product? Maps to the product's top internal
+ * role; absent/false ⇒ the product's default member mapping. Two-writer
+ * precedence (same as the existing role-resolution doctrine): the Admin-pushed
+ * marker is authoritative AT PUSH; a product-LOCAL change is sticky and marked
+ * `source=manual`, winning until the next push overwrites it; divergence stays
+ * visible. Richer per-product role tiers (AB-07 Option 2) would extend this
+ * field later — do not fabricate them now.
  */
 export declare const userRequestSchema: z.ZodObject<{
     tenant: z.ZodObject<{
@@ -154,6 +166,7 @@ export declare const userRequestSchema: z.ZodObject<{
         reactivate: "reactivate";
         delete: "delete";
     }>>;
+    admin: z.ZodOptional<z.ZodBoolean>;
 }, z.core.$strip>;
 export type UserRequest = z.infer<typeof userRequestSchema>;
 /** POST /suspend — reversible access revocation, tenant- or user-scoped. */
