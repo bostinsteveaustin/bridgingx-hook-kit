@@ -11,6 +11,18 @@ Authoritative spec: **BX Admin Boundary — Receiver Conformance Specification**
 (Cortx ctx `e5f4338b-fe00-4401-9e65-672a450a3522`). Where this package and the
 spec differ, the spec wins.
 
+## This repo is the estate's shared-packages home
+
+Per hub ruling **DR-2026-08-31-01** (2026-08-31), shared estate packages live
+here and are consumed as **git-tag dependencies** — nothing is published to a
+registry. Each package commits its `dist/` (prebuilt JS + types); rebuild and
+commit `dist/` with any `src/` change, then tag.
+
+| Package | Where | Tag namespace | Consume as |
+|---|---|---|---|
+| `@bridgingx/hook-kit` | repo root | `vX.Y.Z` | `github:bostinsteveaustin/bridgingx-hook-kit#v0.6.0` |
+| `@bridgingx/tenant-db` | `packages/tenant-db` | `tenant-db-vX.Y.Z` | `github:bostinsteveaustin/bridgingx-hook-kit#tenant-db-v0.1.0&path:/packages/tenant-db` |
+
 ## What it provides
 
 - **Strict HMAC verification** (`verifyPayload`, `verifyIncoming`) — HMAC-SHA256
